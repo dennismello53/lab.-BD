@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<link rel="stylesheet" href="./css/styles.css">
+<title>Cadastro Exemplo HTML</title>
+<style>
+</style>
+</head>
+<body>
+	<nav id="menu">
+		<ul>
+			<li><a href="index.html">Home</a></li>
+			<li><a href="cadastro.html">Cadastro</a></li>
+		</ul>
+	</nav>
+<!--
+	<div align="center">
+		<table class="table_round">
+			<thead>
+				<tr>
+					<th class="th_dash"><b>#ID</b></th>
+					<th class="th_dash"><b>Nome</b></th>
+					<th class="th_dash"><b>Data de Nascimento</b></th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td class="td_groove">1</td>
+					<td class="td_groove">Caio</td>
+					<td class="td_groove" align="center"> 04/09/1975</td>
+				</tr>
+				<tr>
+					<td class="td_groove">2</td>
+					<td class="td_groove">Carlos</td>
+					<td class="td_groove" align="center"> 12/11/1992</td>
+				</tr>
+				<tr>
+					<td class="td_groove">3</td>
+					<td class="td_groove">Pedro</td>
+					<td class="td_groove" align="center"> 22/09/1982</td>
+				</tr>
+			</tbody>
+			<thead/>
+		</table>
+	
+	</div>
+-->		
+	<br />
+	<br />
+	
+	<div class = "container" align="center" >
+		<form action="http://www.google.com/" method="get">
+			<p class="title"><b>Cadastro de Pessoas</b></p>
+				<table> 
+					<tr>
+						<td>
+							<input class="input_data_id" type="number" min="0" step="1" 
+								id="id" name="id"
+								placeholder="#ID" required="required">
+						</td>
+					</tr>
+					<tr>	
+						<td>
+							<input class="input_data_name" type="text" 	
+								id="nome" name="nome"
+								placeholder="Nome" required="required">
+						</td>
+					</tr>
+					<tr>	
+						<td>
+							<input class="input_data" type="date" 
+								id="dataNasc" name="dataNasc"
+								placeholder="Data de Nascimento" required="required">
+						</td>
+					</tr>	
+					<tr>
+						<td>
+					<input type="submit" id="enviar" name="enviar" 
+						value="Enviar">
+						</td>
+					</tr>
+				</table>
+		
+		 
+			
+		</form>	
+	</div>
+	
+</body>
+</html>
