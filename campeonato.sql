@@ -303,7 +303,7 @@ FROM Grupos g
 INNER JOIN Times t
 ON t.CodigoTime = g.Codigo_Time
 
--- Todos os Jogos (Santos na Vila Belmiro)
+-- Todos os Jogos
 SELECT j.DataJogo, ta.CodigoTime AS CodigoTimeA, ta.NomeTime AS NomeTimeA, 
 	   tb.CodigoTime AS CodigoTimeB, tb.NomeTime AS NomeTimeB
 FROM Jogos j, Times ta, Times tb
