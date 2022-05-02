@@ -330,17 +330,15 @@ SELECT * FROM fn_consultarData('2021-02-27')
 TRUNCATE TABLE Jogos 
 TRUNCATE TABLE Grupos
 
--- P2 --
-
 -- Triggers 
--- Trigger que n�o permita INSERT, UPDATE ou DELETE nas tabelas TIMES e GRUPOS.
+-- Trigger que não permita INSERT, UPDATE ou DELETE nas tabelas TIMES e GRUPOS.
 GO 
 CREATE TRIGGER t_block_ins_del_upd_Times ON times 
 INSTEAD OF INSERT, UPDATE, DELETE
 AS
 BEGIN
 	ROLLBACK TRANSACTION 
-	RAISERROR('N�o � poss�vel modificar a tabela Times', 16, 1)
+	RAISERROR('Não é possível modificar a tabela Times', 16, 1)
 END
 
 GO 
@@ -349,10 +347,8 @@ INSTEAD OF INSERT, UPDATE, DELETE
 AS
 BEGIN
 	ROLLBACK TRANSACTION 
-	RAISERROR('N�o � poss�vel modificar a tabela Grupos', 16, 1)
+	RAISERROR('Não é possível modificar a tabela Grupos', 16, 1)
 END
-
-
 -- Trigger semelhante, mas apenas para INSERT e DELETE na tabela jogos.
 GO 
 CREATE TRIGGER t_block_ins_del_Jogos ON Jogos 
@@ -360,7 +356,7 @@ INSTEAD OF INSERT, DELETE
 AS
 BEGIN
 	ROLLBACK TRANSACTION 
-	RAISERROR('N�o � poss�vel inserir ou deletar dados na tabela Jogos', 16, 1)
+	RAISERROR('Não é possível inserir ou deletar dados na tabela Jogos', 16, 1)
 END
 GO 
 
@@ -373,16 +369,122 @@ AS
 	WHERE CodigoTimeA = @cod_timeA 
 		AND CodigoTimeB = @cod_timeB 
 
-	
 /*
-	UDF que receba o nome do grupo, valide-o e d� a seguinte sa�da:
+	UDF que receba o nome do grupo, valide-o e dê a seguinte saída:
 	GRUPO (nome_time, num_jogos_disputados*, vitorias, empates, derrotas, gols_marcados, gols_sofridos, saldo_gols**,pontos***)
-		* O num_jogos_disputados � o n�mero de jogos feitos por aquele time, at� o presente instante. Jogos sem resultados n�o devem ser considerados.
-		** Saldo de gols � a diferen�a entre gols marcados e gols sofridos
-		*** O total de pontos se d� somando os resultados, onde:
-			(Vit�ria = 3 pontos, Empate = 1 ponto , Derrota = 0 pontos)
-
-	O campe�o de cada grupo se dar� por aquele que tiver maior n�mero de pontos. Em caso de
-	empate, a ordem de desempate � por n�mero de vit�rias, depois por gols marcados e por fim,
+		* O num_jogos_disputados é o número de jogos feitos por aquele time, até o presente instante. Jogos sem resultados não devem ser considerados.
+		** Saldo de gols é a diferença entre gols marcados e gols sofridos
+		*** O total de pontos se dá somando os resultados, onde:
+			(Vitória = 3 pontos, Empate = 1 ponto , Derrota = 0 pontos)
+	O campeão de cada grupo se dará por aquele que tiver maior número de pontos. Em caso de
+	empate, a ordem de desempate é por número de vitórias, depois por gols marcados e por fim,
 	por saldo de gols.
 */
+GO
+CREATE FUNCTION fn_gerarTabelaGrupoComPontos(@grupo AS CHAR(1))
+RETURNS @grupos TABLE (
+nome_time	VARCHAR(100),
+num_jogos_disputados INT default(0),
+vitorias INT default(0),
+empates INT default(0),
+derrotas INT default(0),
+gols_marcados INT default(0),
+gols_sofridos INT default(0),
+saldo_gols INT default(0), 
+pontos INT default(0),
+risco_rebaixado VARCHAR(10) default('Baixo')
+)
+AS
+BEGIN
+	
+	-- Procura na classificação geral e insere somente os times do grupo requisitado
+	INSERT INTO @grupos (nome_time, num_jogos_disputados, vitorias, empates, derrotas, gols_marcados, gols_sofridos, saldo_gols, pontos)
+		SELECT p.* FROM fn_gerarTabelaGeralComPontos() p, grupos g, times t 
+		WHERE g.Codigo_Time = t.CodigoTime AND p.nome_time = t.NomeTime AND g.Grupo = @grupo
+	
+	-- Define o risco de rebaixamento como 'Alto' para os 4 times com menos pontos da tabela geral
+	UPDATE @grupos
+	SET risco_rebaixado = 'Alto'
+	WHERE nome_time IN (
+		SELECT TOP(4) tb.nome_time 
+		FROM fn_gerarTabelaGeralComPontos() tb
+		ORDER BY tb.pontos ASC, tb.vitorias ASC, tb.gols_marcados ASC, tb.saldo_gols ASC 
+	)
+	RETURN
+END 
+GO
+-- Deve-se fazer, para melhor visualização dos resultados, uma tela com a classificação geral, numa UDF (User Defined FUNCTION) para os 20 times do campeonato.
+-- CAMPEONATO (nome_time, num_jogos_disputados*, vitorias, empates, derrotas, gols_marcados, gols_sofridos, saldo_gols**,pontos***)
+-- A ordenação da saída se dá pelo mesmo critério anterior.
+GO
+ALTER FUNCTION fn_gerarTabelaGeralComPontos ()
+RETURNS @grupos TABLE (
+nome_time	VARCHAR(100),
+num_jogos_disputados INT default(0),
+vitorias INT default(0),
+empates INT default(0),
+derrotas INT default(0),
+gols_marcados INT default(0),
+gols_sofridos INT default(0),
+saldo_gols INT default(0), 
+pontos INT default(0) 
+)
+AS
+BEGIN
+	-- Insere o nome de todos os times 
+	INSERT INTO @grupos (nome_time)
+		SELECT nome_time from fn_gerarTabelaTimes ()
+UPDATE g
+	SET 
+	
+		-- Atualiza os jogos disputados
+		num_jogos_disputados = ((SELECT COUNT(jj.CodigoTimeA) FROM Jogos jj, Times tt WHERE jj.CodigoTimeA = tt.CodigoTime 
+								AND tt.NomeTime = g.nome_time AND jj.GolsTimeA IS NOT NULL AND jj.GolsTimeB IS NOT NULL)
+							   + (SELECT COUNT(jj.CodigoTimeB) FROM Jogos jj, Times tt WHERE jj.CodigoTimeB = tt.CodigoTime 
+								AND tt.NomeTime = g.nome_time AND jj.GolsTimeA IS NOT NULL AND jj.GolsTimeB IS NOT NULL)),
+		
+		-- Atualiza os empates 
+		empates = ((SELECT COUNT(jj.CodigoTimeA) FROM Jogos jj, Times tt WHERE jj.CodigoTimeA = tt.CodigoTime 
+					AND tt.NomeTime = g.nome_time AND jj.GolsTimeA = jj.GolsTimeB AND jj.GolsTimeA IS NOT NULL AND jj.GolsTimeB IS NOT NULL)
+				   + (SELECT COUNT(jj.CodigoTimeB) FROM Jogos jj, Times tt WHERE jj.CodigoTimeB = tt.CodigoTime 
+				    AND tt.NomeTime = g.nome_time AND jj.GolsTimeB = jj.GolsTimeA AND jj.GolsTimeA IS NOT NULL AND jj.GolsTimeB IS NOT NULL)),
+
+		-- Atualiza as derrotas 
+		derrotas = ((SELECT COUNT(jj.CodigoTimeA) FROM Jogos jj, Times tt WHERE jj.CodigoTimeA = tt.CodigoTime 
+					AND tt.NomeTime = g.nome_time AND jj.GolsTimeA < jj.GolsTimeB AND jj.GolsTimeA IS NOT NULL AND jj.GolsTimeB IS NOT NULL)
+				   + (SELECT COUNT(jj.CodigoTimeB) FROM Jogos jj, Times tt WHERE jj.CodigoTimeB = tt.CodigoTime 
+				    AND tt.NomeTime = g.nome_time AND jj.GolsTimeB < jj.GolsTimeA AND jj.GolsTimeA IS NOT NULL AND jj.GolsTimeB IS NOT NULL)),
+		
+		-- Atualiza as vitórias
+		vitorias = ((SELECT COUNT(jj.CodigoTimeA) FROM Jogos jj, Times tt WHERE jj.CodigoTimeA = tt.CodigoTime 
+					AND tt.NomeTime = g.nome_time AND jj.GolsTimeA > jj.GolsTimeB AND jj.GolsTimeA IS NOT NULL AND jj.GolsTimeB IS NOT NULL)
+				   + (SELECT COUNT(jj.CodigoTimeB) FROM Jogos jj, Times tt WHERE jj.CodigoTimeB = tt.CodigoTime 
+				    AND tt.NomeTime = g.nome_time AND jj.GolsTimeB > jj.GolsTimeA AND jj.GolsTimeA IS NOT NULL AND jj.GolsTimeB IS NOT NULL)),
+
+		-- Atualiza os gols marcados pelo time
+		gols_marcados = ((SELECT CASE WHEN (SUM(jj.GolsTimeA) IS NOT NULL) THEN SUM(jj.GolsTimeA) ELSE 0 END FROM Jogos jj, Times tt WHERE jj.CodigoTimeA = tt.CodigoTime AND tt.NomeTime = g.nome_time AND jj.GolsTimeA IS NOT NULL)
+					   + (SELECT CASE WHEN (SUM(jj.GolsTimeB) IS NOT NULL) THEN SUM(jj.GolsTimeB) ELSE 0 END FROM Jogos jj, Times tt WHERE jj.CodigoTimeB = tt.CodigoTime AND tt.NomeTime = g.nome_time AND jj.GolsTimeB IS NOT NULL)),
+		
+		-- Atualiza os gols sofridos 
+		gols_sofridos = ((SELECT CASE WHEN (SUM(jj.GolsTimeB) IS NOT NULL) THEN SUM(jj.GolsTimeB) ELSE 0 END FROM Jogos jj, Times tt WHERE jj.CodigoTimeA = tt.CodigoTime AND tt.NomeTime = g.nome_time AND jj.GolsTimeB IS NOT NULL)
+					  + (SELECT CASE WHEN (SUM(jj.GolsTimeA) IS NOT NULL) THEN SUM(jj.GolsTimeA) ELSE 0 END FROM Jogos jj, Times tt WHERE jj.CodigoTimeB = tt.CodigoTime AND tt.NomeTime = g.nome_time AND jj.GolsTimeA IS NOT NULL))
+		
+	FROM Times t, @grupos g
+	WHERE g.nome_time = t.NomeTime
+	
+	-- Atualiza o Saldo de gols e os pontos totais até o momento
+	UPDATE @grupos
+	SET saldo_gols = gols_marcados - gols_sofridos,
+		pontos = (vitorias * 3) + empates
+	
+	RETURN 
+END 
+GO
+-- Tabelas de cada grupo com pontos Ordenada 
+SELECT * FROM fn_gerarTabelaGrupoComPontos ('B') ORDER BY pontos DESC, vitorias DESC, gols_marcados DESC, saldo_gols DESC 
+
+-- Tabela geral do campeonato com pontos Ordenada 
+SELECT * FROM fn_gerarTabelaGeralComPontos () ORDER BY pontos DESC, vitorias DESC, gols_marcados DESC, saldo_gols DESC 
+
+-- Gera a projeção das Quartas de Finais
+SELECT * FROM fn_gerarQuartas() ORDER BY pontos DESC
