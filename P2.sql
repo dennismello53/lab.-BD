@@ -329,3 +329,60 @@ SELECT * FROM fn_consultarData('2021-02-27')
 -- Truncate -- 
 TRUNCATE TABLE Jogos 
 TRUNCATE TABLE Grupos
+
+-- P2 --
+
+-- Triggers 
+-- Trigger que n�o permita INSERT, UPDATE ou DELETE nas tabelas TIMES e GRUPOS.
+GO 
+CREATE TRIGGER t_block_ins_del_upd_Times ON times 
+INSTEAD OF INSERT, UPDATE, DELETE
+AS
+BEGIN
+	ROLLBACK TRANSACTION 
+	RAISERROR('N�o � poss�vel modificar a tabela Times', 16, 1)
+END
+
+GO 
+CREATE TRIGGER t_block_ins_del_upd_Grupos ON Grupos
+INSTEAD OF INSERT, UPDATE, DELETE
+AS
+BEGIN
+	ROLLBACK TRANSACTION 
+	RAISERROR('N�o � poss�vel modificar a tabela Grupos', 16, 1)
+END
+
+
+-- Trigger semelhante, mas apenas para INSERT e DELETE na tabela jogos.
+GO 
+CREATE TRIGGER t_block_ins_del_Jogos ON Jogos 
+INSTEAD OF INSERT, DELETE
+AS
+BEGIN
+	ROLLBACK TRANSACTION 
+	RAISERROR('N�o � poss�vel inserir ou deletar dados na tabela Jogos', 16, 1)
+END
+GO 
+
+-- Procedure para inserir os gols na tabela Jogos 
+CREATE PROC sp_insereGols (@gols_timeA AS INT, @gols_timeB AS INT, @cod_timeA AS INT, @cod_timeB AS INT)
+AS 
+	UPDATE jogos 
+	SET GolsTimeA = @gols_timeA, 
+		GolsTimeB = @gols_timeB
+	WHERE CodigoTimeA = @cod_timeA 
+		AND CodigoTimeB = @cod_timeB 
+
+	
+/*
+	UDF que receba o nome do grupo, valide-o e d� a seguinte sa�da:
+	GRUPO (nome_time, num_jogos_disputados*, vitorias, empates, derrotas, gols_marcados, gols_sofridos, saldo_gols**,pontos***)
+		* O num_jogos_disputados � o n�mero de jogos feitos por aquele time, at� o presente instante. Jogos sem resultados n�o devem ser considerados.
+		** Saldo de gols � a diferen�a entre gols marcados e gols sofridos
+		*** O total de pontos se d� somando os resultados, onde:
+			(Vit�ria = 3 pontos, Empate = 1 ponto , Derrota = 0 pontos)
+
+	O campe�o de cada grupo se dar� por aquele que tiver maior n�mero de pontos. Em caso de
+	empate, a ordem de desempate � por n�mero de vit�rias, depois por gols marcados e por fim,
+	por saldo de gols.
+*/
