@@ -37,6 +37,7 @@ CREATE TABLE grupos(
 );
 
 
+
 CREATE TABLE jogos(
 	CodigoTimeA INT NOT NULL,
 	CodigoTimeB INT NOT NULL,
@@ -131,3 +132,26 @@ AS
 	-- Escolhe o dia de inicio e do fim de campeonato
 	SET @dia_de_hoje = '2021-02-27'
 	SET @dia_final = '2021-05-23'
+	
+	-- Enquanto o campeonato estiver rolando 
+	WHILE (@dia_de_hoje < @dia_final)
+	BEGIN 
+		-- Verifica se é dia de Jogo (Quarta ou Domingo)
+		IF ((DATEPART(WEEKDAY, @dia_de_hoje) = 1) OR (DATEPART(WEEKDAY, @dia_de_hoje) = 4))
+		BEGIN 
+
+			SET @times_jogados = 1
+
+			-- Enquanto os 16 times não tiverem jogado
+			WHILE (@times_jogados <= 16 )
+			BEGIN 
+
+				-- Escolhe o time A que ira jogar 
+	            SET @id_time = @times_jogados
+
+				-- Verifica se o time A jogou no dia de hoje
+				SET @codigo = NULL
+				SET @codigo = (SELECT j.CodigoTimeA 
+				               FROM Jogos AS j 
+							   WHERE ((@id_time = j.CodigoTimeA OR 
+
