@@ -154,4 +154,137 @@ AS
 				SET @codigo = (SELECT j.CodigoTimeA 
 				               FROM Jogos AS j 
 							   WHERE ((@id_time = j.CodigoTimeA OR 
+                                                                         @id_time = j.CodigoTimeB) AND
+									 @dia_de_hoje = j.DataJogo))
+
+				-- Caso ainda não tenha jogado 
+				IF (@codigo IS NULL)
+				BEGIN
+					SET @jogou = 0
+					SET @contador = 1
+					SET @adversario = 0
+
+					-- Em quanto ainda não jogou e ainda tem adversários para serem enfrentados
+					WHILE ((@jogou = 0) AND (@contador < 16))
+					BEGIN 
+						
+						-- Escolhe o adversário
+						SET @adversario = @id_time + @contador 
+						IF (@adversario > 16)
+						BEGIN
+							SET @adversario = @adversario - 16
+						END
+								@adversario = j.CodigoTimeB) AND
+										@dia_de_hoje = j.DataJogo))
+
+						-- Verfica se ambos os times já jogaram um contra o outro				
+						SET @codigo = NULL
+						SET @codigo = (SELECT j.CodigoTimeA
+									   FROM Jogos AS J 
+									   WHERE (j.CodigoTimeA = @id_time AND j.CodigoTimeB = @adversario) OR 
+											 (j.CodigoTimeA = @adversario AND j.CodigoTimeB = @id_time))
+
+						-- Verifica se ambos os times estão no mesmo Grupo					
+						SET @mesmoGrupo = NULL
+						SET @mesmoGrupo = (SELECT g1.Codigo_Time
+										   FROM Grupos g1, Grupos g2
+									       WHERE g1.Grupo != g2.Grupo
+											 AND g1.Codigo_Time = @id_time
+											 AND g2.Codigo_Time = @adversario)
+						
+						-- Se alguma das condições forem Verdadeiras, ira se decidir um novo adversario.
+						IF ((@codigo IS NOT NULL) OR (@codigoAdv IS NOT NULL) or (@id_time = @adversario) OR (@mesmoGrupo IS NULL))
+						BEGIN 
+							SET @contador = @contador + 1
+						END 
+
+						-- Senão eles irão se enfrentar 
+						ELSE 
+						BEGIN 
+							SET @jogou = 1; 
+							INSERT INTO Jogos VALUES (@id_time, @adversario, NULL, NULL, @dia_de_hoje)
+						END 
+					END 
+				END
+				SET @times_jogados = @times_jogados + 1 	
+			END 
+		END 
+
+		SET @dia_de_hoje = DATEADD(DAY, 1, @dia_de_hoje)
+END 
+GO
+
+
+--	- Uma tela deve mostrar 4 Tabelas com os 4 grupos formados.
+CREATE FUNCTION fn_gerarTabelaGrupo(@grupo AS CHAR(1))
+RETURNS @table TABLE (
+cod_time	INT,
+nome_time	VARCHAR(100)
+)
+AS
+BEGIN
+
+	INSERT INTO @table 
+		SELECT t.CodigoTime, t.NomeTime
+		FROM Grupos g, Times t
+		WHERE t.CodigoTime = g.Codigo_Time
+			AND Grupo = @grupo
+
+	RETURN 
+END 
+GO
+
+
+--	- Uma tela deve mostrar um Campo, onde o usuário digite a data e, em caso de ser uma data com
+--	rodada, mostre uma tabela com todos os jogos daquela rodada.
+CREATE FUNCTION fn_consultarData (@verfData DATE)
+RETURNS @table TABLE (
+nome_timeA	VARCHAR(100),
+nome_timeB	VARCHAR(100)
+)
+AS
+BEGIN 
+	INSERT INTO @table 
+		SELECT ta.nomeTime, tb.NomeTime
+		FROM Jogos j, Times ta, Times tb
+		WHERE ta.CodigoTime = j.CodigoTimeA
+			AND tb.CodigoTime = j.CodigoTimeB
+			AND j.DataJogo = @verfData
+	RETURN 
+END 
+GO 
+
+-- SELECTS -- 
+-- Todos os Grupos
+SELECT g.Grupo, t.NomeTime
+FROM Grupos g
+INNER JOIN Times t
+ON t.CodigoTime = g.Codigo_Time
+
+-- Todos os Jogos (Santos na Vila Belmiro)
+SELECT j.DataJogo, ta.CodigoTime AS CodigoTimeA, ta.NomeTime AS NomeTimeA, 
+	   tb.CodigoTime AS CodigoTimeB, tb.NomeTime AS NomeTimeB
+FROM Jogos j, Times ta, Times tb
+WHERE ta.CodigoTime = j.CodigoTimeA
+	AND tb.CodigoTime = j.CodigoTimeB
+	ORDER BY j.DataJogo
+
+-- Todos os Times 
+SELECT * FROM Times 
+
+-- PROCEDURES -- 
+EXEC sp_gerarGrupos
+EXEC sp_gerarJogos
+
+-- FUNCTIONs -- 
+SELECT * FROM fn_gerarTabelaGrupo('A')
+SELECT * FROM fn_gerarTabelaGrupo('B')
+SELECT * FROM fn_gerarTabelaGrupo('C')
+SELECT * FROM fn_gerarTabelaGrupo('D')
+
+SELECT * FROM fn_consultarData('2021-02-27')	
+
+-- Truncate -- 
+TRUNCATE TABLE Jogos 
+TRUNCATE TABLE Grupos
 
