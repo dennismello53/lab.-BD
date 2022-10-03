@@ -36,13 +36,11 @@ CREATE TABLE grupos(
 	FOREIGN KEY (CodigoTime) references times(CodigoTime)
 );
 
-
-
 CREATE TABLE jogos(
 	CodigoTimeA INT NOT NULL,
 	CodigoTimeB INT NOT NULL,
-	GolsTimeA INT NOT NULL,
-	GolsTimeB INT NOT NULL,
+	GolsTimeA INT,
+	GolsTimeB INT,
 	Dia DATE CHECK (Dia >= '27/02/2021' and Dia <= '23/05/2021' ),
 	PRIMARY KEY (CodigoTimeA, CodigoTimeB),
 	FOREIGN KEY (CodigoTimeA) REFERENCES times(CodigoTime),
@@ -53,44 +51,55 @@ SELECT * FROM times;
 SELECT * FROM grupos;
 SELECT * FROM jogos;
 
-CREATE PROC sp_sorteiopaulistao
+CREATE PROC sp_gerarGrupos
 AS
-	DECLARE @random INT,
-			@cabeca AS VARCHAR(4),
-			@secundarios AS VARCHAR(16),
-			@grupo AS CHAR(1),
+    DECLARE @random INT, 
+            @secundarios AS VARCHAR(16),
+            @principais AS VARCHAR (4),
+            @grupo AS CHAR(1),
             @time AS VARCHAR(16),
             @count AS INT,
             @aux AS CHAR(1)
 
+	-- Define a quantidade de times em cada grupo:
+	-- Secundarios: 3 Vagas em cada grupo
+    SET @secundarios = 'AAABBBCCCDDD'
+	-- Principais: 1 Vaga em cada grupo
+    SET @principais = 'ABCD'
 
-	SET @cabeca = 'ABCD'
-	SET @secundarios = 'AAABBBCCCDDD'
-	SET @count = 1
-	
-	WHILE (@count <= 16)
-	BEGIN
-		IF ((@count = 2) OR (@count = 9) OR (@count = 13) OR (@count = 16)) 
+	-- Contador de ID dos times
+    SET @count = 1
+
+	-- Ira realizar o ciclo até ser definido o grupo dos 16 Times
+    WHILE (@count <= 16) 
+    BEGIN 
+		-- Define se ira pegar a vaga na lista principal ou secundaria
+		-- Se o time estiver na lista de "Principais" (Sp, Corint, Palm, Sant)
+        IF ((@count = 2) OR (@count = 9) OR (@count = 13) OR (@count = 16)) 
         BEGIN 
-            SET @time = @cabeca
-            SET @aux = 'c'
+            SET @time = @principais
+            SET @aux = 'p'
         END 
-		ELSE
-		BEGIN
-			SET @time = @secundarios
-			SET @aux = 's'
-		END
+		-- Se estiver na lista de "Secundarios" 
+        ELSE
+        BEGIN 
+            SET @time = @secundarios
+            SET @aux = 's'
+        END  
 
-	SET @random = FLOOR(RAND()*(LEN(@time))+1)
-			
+		-- Define um grupo aleatóriamente
+        SET @random = FLOOR(RAND()*(LEN(@time))+1)
+        -- Utilizando as vagas escolhidas anteriormente
 		SET @grupo = SUBSTRING(@time, @random, 1)
-	
-	SET @time = STUFF(@time, PATINDEX('%' + @grupo + '%', @time), LEN(@grupo), '')
 
-	IF(@aux = 's')
-	BEGIN
-		SET @secundarios = @time
-	END 
+		-- Remove uma vaga do grupo escolhido
+        SET @time = STUFF(@time, PATINDEX('%' + @grupo + '%', @time), LEN(@grupo), '')
+
+		-- Registra as vagas restantes 
+        IF (@aux = 's')
+        BEGIN 
+            SET @secundarios = @time 
+        END 
         ELSE 
         BEGIN
             SET @principais = @time
@@ -155,7 +164,7 @@ AS
 				               FROM Jogos AS j 
 							   WHERE ((@id_time = j.CodigoTimeA OR 
                                                                          @id_time = j.CodigoTimeB) AND
-									 @dia_de_hoje = j.DataJogo))
+									 @dia_de_hoje = j.Dia))
 
 				-- Caso ainda não tenha jogado 
 				IF (@codigo IS NULL)
@@ -174,8 +183,13 @@ AS
 						BEGIN
 							SET @adversario = @adversario - 16
 						END
-								@adversario = j.CodigoTimeB) AND
-										@dia_de_hoje = j.DataJogo))
+						-- Verifica se adversario já jogou no dia de hoje
+						SET @codigoAdv = NULL
+						SET @codigoAdv = (SELECT j.CodigoTimeA 
+										  FROM Jogos AS j 
+										  WHERE ((@adversario = j.CodigoTimeA OR 
+												 @adversario = j.CodigoTimeB) AND
+												 @dia_de_hoje = j.Dia))
 
 						-- Verfica se ambos os times já jogaram um contra o outro				
 						SET @codigo = NULL
@@ -186,11 +200,11 @@ AS
 
 						-- Verifica se ambos os times estão no mesmo Grupo					
 						SET @mesmoGrupo = NULL
-						SET @mesmoGrupo = (SELECT g1.Codigo_Time
+						SET @mesmoGrupo = (SELECT g1.CodigoTime
 										   FROM Grupos g1, Grupos g2
 									       WHERE g1.Grupo != g2.Grupo
-											 AND g1.Codigo_Time = @id_time
-											 AND g2.Codigo_Time = @adversario)
+											 AND g1.CodigoTime = @id_time
+											 AND g2.CodigoTime = @adversario)
 						
 						-- Se alguma das condições forem Verdadeiras, ira se decidir um novo adversario.
 						IF ((@codigo IS NOT NULL) OR (@codigoAdv IS NOT NULL) or (@id_time = @adversario) OR (@mesmoGrupo IS NULL))
@@ -211,7 +225,8 @@ AS
 		END 
 
 		SET @dia_de_hoje = DATEADD(DAY, 1, @dia_de_hoje)
-END 
+
+	END 
 GO
 
 
@@ -227,7 +242,7 @@ BEGIN
 	INSERT INTO @table 
 		SELECT t.CodigoTime, t.NomeTime
 		FROM Grupos g, Times t
-		WHERE t.CodigoTime = g.Codigo_Time
+		WHERE t.CodigoTime = g.CodigoTime
 			AND Grupo = @grupo
 
 	RETURN 
@@ -249,7 +264,7 @@ BEGIN
 		FROM Jogos j, Times ta, Times tb
 		WHERE ta.CodigoTime = j.CodigoTimeA
 			AND tb.CodigoTime = j.CodigoTimeB
-			AND j.DataJogo = @verfData
+			AND j.Dia = @verfData
 	RETURN 
 END 
 GO 
@@ -259,15 +274,15 @@ GO
 SELECT g.Grupo, t.NomeTime
 FROM Grupos g
 INNER JOIN Times t
-ON t.CodigoTime = g.Codigo_Time
+ON t.CodigoTime = g.CodigoTime
 
 -- Todos os Jogos (Santos na Vila Belmiro)
-SELECT j.DataJogo, ta.CodigoTime AS CodigoTimeA, ta.NomeTime AS NomeTimeA, 
+SELECT j.Dia, ta.CodigoTime AS CodigoTimeA, ta.NomeTime AS NomeTimeA, 
 	   tb.CodigoTime AS CodigoTimeB, tb.NomeTime AS NomeTimeB
 FROM Jogos j, Times ta, Times tb
 WHERE ta.CodigoTime = j.CodigoTimeA
 	AND tb.CodigoTime = j.CodigoTimeB
-	ORDER BY j.DataJogo
+	ORDER BY j.Dia
 
 -- Todos os Times 
 SELECT * FROM Times 
@@ -282,9 +297,8 @@ SELECT * FROM fn_gerarTabelaGrupo('B')
 SELECT * FROM fn_gerarTabelaGrupo('C')
 SELECT * FROM fn_gerarTabelaGrupo('D')
 
-SELECT * FROM fn_consultarData('2021-02-27')	
+SELECT * FROM fn_consultarData('28/02/2021')	
 
 -- Truncate -- 
 TRUNCATE TABLE Jogos 
 TRUNCATE TABLE Grupos
-
