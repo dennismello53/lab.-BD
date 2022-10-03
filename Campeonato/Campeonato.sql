@@ -10,22 +10,22 @@ CREATE TABLE times(
 	PRIMARY KEY(CodigoTime)
 );
 
-INSERT INTO Times VALUES('Botafogo-SP','Ribeir„o Preto','Santa Cruz')
-INSERT INTO Times VALUES('Corinthians','S„o Paulo','Arena Corinthians')
-INSERT INTO Times VALUES('Ferrovi·ria','Araraquara','Fonte Luminosa')
+INSERT INTO Times VALUES('Botafogo-SP','Ribeir√£o Preto','Santa Cruz')
+INSERT INTO Times VALUES('Corinthians','S√£o Paulo','Arena Corinthians')
+INSERT INTO Times VALUES('Ferrovi√°ria','Araraquara','Fonte Luminosa')
 INSERT INTO Times VALUES('Guarani','Campinas','Brinco de Ouro da Princesa')
-INSERT INTO Times VALUES('Inter de Limeira','Limeira', 'Limeir„o')
-INSERT INTO Times VALUES('Ituano','Itu','Novelli J˙nior')
-INSERT INTO Times VALUES('Mirassol','Mirassol','JÛse Maria de Campos Maia')
+INSERT INTO Times VALUES('Inter de Limeira','Limeira', 'Limeir√£o')
+INSERT INTO Times VALUES('Ituano','Itu','Novelli J√∫nior')
+INSERT INTO Times VALUES('Mirassol','Mirassol','J√≥se Maria de Campos Maia')
 INSERT INTO Times VALUES('Novorizontino','Novo Horizonte','Jorge Ismael de Biasi')
-INSERT INTO Times VALUES('Palmeiras','S„o Paulo','Allianz Parque')
-INSERT INTO Times VALUES('Ponte Preta','Campinas','MoisÈs Lucarelli')
-INSERT INTO Times VALUES('Red Bull Bragantino','BraganÁa Paulista','Nabi Abi Chedid')
-INSERT INTO Times VALUES('Santo AndrÈ', 'Santo AndrÈ', 'Bruno JosÈ Daniel')
+INSERT INTO Times VALUES('Palmeiras','S√£o Paulo','Allianz Parque')
+INSERT INTO Times VALUES('Ponte Preta','Campinas','Mois√©s Lucarelli')
+INSERT INTO Times VALUES('Red Bull Bragantino','Bragan√ßa Paulista','Nabi Abi Chedid')
+INSERT INTO Times VALUES('Santo Andr√©', 'Santo Andr√©', 'Bruno Jos√© Daniel')
 INSERT INTO Times VALUES('Santos','Santos','Vila Belmiro')
-INSERT INTO Times VALUES('S„o Bento','Sorocaba','Walter Ribeiro')
-INSERT INTO Times VALUES('S„o Caetano','S„o Caetano do Sul','Anacletto Campenella')
-INSERT INTO Times VALUES('S„o Paulo','S„o Paulo','Morumbi')
+INSERT INTO Times VALUES('S√£o Bento','Sorocaba','Walter Ribeiro')
+INSERT INTO Times VALUES('S√£o Caetano','S√£o Caetano do Sul','Anacletto Campenella')
+INSERT INTO Times VALUES('S√£o Paulo','S√£o Paulo','Morumbi')
 
 SELECT * FROM times;
 
@@ -89,3 +89,45 @@ AS
 	IF(@aux = 's')
 	BEGIN
 		SET @secundarios = @time
+	END 
+        ELSE 
+        BEGIN
+            SET @principais = @time
+        END  
+
+		-- Insere na tabela Grupos o grupo sorteado juntamente com o ID do time
+        INSERT INTO Grupos VALUES (@grupo, @count)
+
+		-- Passa para o pr√≥ximo time
+        SET @count = @count + 1 
+
+        END 
+GO
+
+
+/*
+	- Uma tela deve gerar as rodadas dos jogos, de acordo com as regras do
+	campeonato, preenchendo a tabela jogos.
+	Lembre-se, cada rodada tem 8 jogos (todos os 16 times). Lembre-se tamb√©m que, as rodadas
+	v√£o acontecer de quarta e domingo, sucessivamente, sem pausas.
+	‚Ä¢ Um jogo n√£o pode ocorrer 2 vezes, mesmo em rodadas diferentes
+	‚Ä¢ Um time n√£o pode aparecer 2 vezes na mesma rodada
+	‚Ä¢ A fase de grupos vai terminar antes da data final do campeonato, uma vez que o
+	  campeonato prev√™ datas das fase eliminat√≥rias tamb√©m
+*/
+CREATE PROC sp_gerarJogos
+AS
+	DECLARE @dia_de_hoje AS DATE, 
+			@dia_final AS DATE,
+			@contador AS INT,
+			@codigo AS INT,
+			@codigoAdv AS INT,
+			@times_jogados AS INT,
+			@adversario AS INT,
+			@jogou AS INT,
+			@id_time AS INT, 
+			@mesmoGrupo AS INT 
+	
+	-- Escolhe o dia de inicio e do fim de campeonato
+	SET @dia_de_hoje = '2021-02-27'
+	SET @dia_final = '2021-05-23'
